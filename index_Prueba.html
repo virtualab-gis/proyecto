@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Geoinformática</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+
+  <!-- Cargar Leaflet: instructions at http://leafletjs.com/download.html -->
+<!-- Cargar .css -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.1.0/dist/leaflet.css"
+  integrity="sha384-Zh+y1U8o6/7ni8Mp8szvUfZjGeKKS10CGH3IlD6L1X+XwzYgQ1llOjw/Wslc0cma"
+  crossorigin="anonymous">
+<!-- Cargar .js -->
+  <script src="https://unpkg.com/leaflet@1.1.0/dist/leaflet.js"
+  integrity="sha384-6rCYjRgWDEI2RlZxiVihj1WIZB/uvFiRCGpavTVgFrSPDL0Bk1AiqCW+mmv5h0LP"
+  crossorigin="anonymous"></script>
+<!-- Cargar jquery -->
+    <script src="https://code.jquery.com/jquery-2.2.3.js"></script>
+  
+  <!-- Position the map and title with Cascading Style Sheet (.css) -->
+  <style>
+  body { margin:0; padding:0; }
+  #map { position: absolute; top:0; bottom:0; right:0; left:0; }
+  #map-title { position: relative; margin-top: 10px; margin-left: 50px; float: left; background: white; border: 2px solid rgba(0,0,0,0.2); padding: 6px 8px; font-family: Helvetica; font-weight: bold; font-size: 24px; z-index: 800; }
+  
+  </style>
+</head>
+<body>
+
+  <!-- Display the map and title with HTML division tags  -->
+  <div id="map-title">Geoinformática</div>
+  <div id="map"></div>
+
+  <!-- Create the map content with JavaScript (.js) -->
+  <script>
+
+ //Crear variables para mapa base
+var transport = L.tileLayer('https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=346585a3594c4671979ebe96e8cf3a8d', {
+	attribution: '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+	apikey: '<346585a3594c4671979ebe96e8cf3a8d>',	maxZoom: 22});
+var EsriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+	attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'});
+var terrain = L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
+    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'}); 
+var light = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attribution">CARTO</a>'});
+
+//Cargar capas GeoJSON
+	  
+//Estilo para ciertas capas
+var limite_style = {
+    "fillOpacity": 0,
+    "color": "#414244",
+    "weight": 5,
+    "opacity": 1
+};
+
+var est_metro_style = {
+    radius: 3.5,
+    fillColor: "#FFFFFF",
+    color: "#000000",
+    weight: 1.5,
+    opacity: 1,
+    fillOpacity: 0.6
+};
+	  
+// Estilo para capa de tiendas con icono en particular	  
+var tiendas_style = L.icon({
+	iconUrl: 'Icon/dice.png',
+	iconSize: [22.5, 22.5],
+});
+	  
+function estiloIcon(feature, latlng) {
+	return L.marker(latlng, {
+		icon: tiendas_style
+	})
+};	  
+
+//Estilo colonias	  
+var col_style = {
+	fillcolor:"FFFFFF",
+	color: "#000000",
+	weight: 1,
+	opacity: 0.6,
+	fillOpacity: 0.25
+};
+
+// Crear variables para los GeoJSON
+var limite = L.geoJson(null, {
+	style: limite_style })
+
+//Variable para capa de la ubicación de cada de amigos
+var amigos = L.geoJson(null, { 
+	onEachFeature: function( feature, layer ){
+		layer.bindPopup( "<strong>" + feature.properties.Name + "</strong>")}
+		});
+
+//Variable con los hexagonos tematizados de la CDMX	  
+var cdmx = L.geoJson(null, {
+    style: function(feature){
+      var fillColor,
+          denpob = feature.properties.DenPob;
+      if ( denpob >  253.2304 ) fillColor = "#a50f15";
+      else if ( denpob > 177.13 ) fillColor = "#de2d26";
+      else if ( denpob > 112.24 ) fillColor = "#fb6a4a";
+      else if ( denpob > 51.76 ) fillColor = "#fcae91";
+      else if ( denpob > 0.03 ) fillColor = "#fee5d9";
+      else fillColor = "#f7f7f7";  // no data
+      return { color: "#999", weight: 0.5, fillColor: fillColor, fillOpacity: .5 };
+    },
+	 onEachFeature: function( feature, layer ){
+      layer.bindPopup( "<strong>" + "Densidad" + "</strong><br/>" + feature.properties.DenPob + " habitantes por hectárea" )
+    }
+  }  );
+   /* onEachFeature: function( feature, layer ){
+      layer.bindPopup( "<strong>" + "Densidad" + "</strong><br/>+"feature.properties.DenPob + " habitantes por hectárea" )
+    }
+};
+*/
+// Variable para la red del metro tematizada	  
+var red_metro = L.geoJson(null, {
+	style: function(feature){
+		switch (feature.properties.Name){
+			case 'Línea 1': return {color:'#FEA3FF'};
+			case 'Línea 2': return {color:'#1446D6'};
+			case 'Línea 3': return {color:'#BCDA13'};
+			case 'Línea 4': return {color:'#86DADA'};
+			case 'Línea 5': return {color:'#F7FF00'};
+			case 'Línea 6': return {color:'#FF0000'};
+			case 'Línea 7': return {color:'#FFC100'};
+			case 'Línea 8': return {color:'#20AB1C'};
+			case 'Línea 9': return {color:'#854E0C'};
+			case 'Línea A': return {color:'#DE25F0'};
+			case 'Línea B': return {color:'#98D7BC'};
+			case 'Línea 12': return {color:'#E9CA04'};
+		}
+		},
+		onEachFeature: function( feature, layer ){
+      		layer.bindPopup( "<strong>" + "SCT Metro" + "</strong><br/>"+ feature.properties.Name)
+    }
+	});
+
+//Variable para las estaciones del metro
+var est_metro = L.geoJson(null, {
+	pointToLayer: function (feature, latlng) {return L.circleMarker(latlng, est_metro_style)},
+	onEachFeature: function( feature, layer ){
+      	layer.bindPopup( "<strong>" + "SCT Metro" + "</strong><br/>" + feature.properties.Name )}
+	});
+//Variable para las colonias
+var col = L.geoJson(null, {
+	style: col_style, 
+	onEachFeature: function( feature, layer ){
+	layer.bindPopup( "<strong>" + "COLONIA" + "</strong><br/>"+
+	feature.properties.SETT_NAME + ", POBLACIÓN: " + feature.properties.Sum_POB1 + " HABITANTES" )}
+	});
+
+//Variable para las tiendas
+var tiendas =L.geoJson(null, {
+	pointToLayer: estiloIcon,
+	onEachFeature: function( feature, layer ){
+		layer.bindPopup( "<strong>" + feature.properties.Name + "</strong><br/>" + feature.properties.link)}
+	});
+	  
+//Cargar el GeoJSON a las variables	    
+$.getJSON("GeoJson/CDMX_Hex.geojson", function (data) {
+	cdmx.addData(data)});
+$.getJSON("GeoJson/Limite_CDMX.geojson", function (data) {
+	limite.addData(data)});
+$.getJSON("GeoJson/Red_STCMetro.geojson", function (data) {
+	red_metro.addData(data)});	
+$.getJSON("GeoJson/Estaciones_STCMetro.geojson", function (data) {
+	est_metro.addData(data)});
+$.getJSON("GeoJson/Colonias.geojson", function (data) {
+	col.addData(data)});
+$.getJSON("GeoJson/tiendas.geojson", function (data) {
+	tiendas.addData(data)});	  
+$.getJSON("GeoJson/amigos.geojson", function (data) {
+	amigos.addData(data)});
+	  
+//Ordenar las capas en orden
+est_metro.bringToFront();	  
+limite.bringToFront();
+	
+// Inicialización del mapa
+var map = L.map('map', {
+	center:[19.349519, -99.152265],
+	zoom:10,
+	layers:[light, limite]});
+//Agrupar capas base
+var baseMaps = {
+"ESRI Satelite": EsriSat,
+"TF transporte": transport,
+"Stamen terrain": terrain,
+"Carto light": light,
+}
+
+//Agrupar Overlay layers
+var overlays = {
+   /* "Amigos": amigos,*/
+    "Tiendas": tiendas,	
+    "Estaciones SCT Metro": est_metro,
+    "Red SCT Metro": red_metro,
+    "Densidad poblacional": cdmx,
+    "Colonias": col,
+    };
+
+//Agregar controlador al mapa
+L.control.layers(baseMaps, overlays).addTo(map);
+
+//Agregar escala metrica
+L.control.scale().addTo(map);
+	  
+//Agregar leyenda
+function getColor(d) {
+	return d > 253 ? '#a50f15' :
+		d > 177  ? '#de2d26' :
+		d > 112  ? '#fb6a4a' :
+		d > 51  ? '##fcae91' :
+		d > 0   ? '#fee5d9' :
+	'#ffffff';
+}
+	  
+/* Good way to create custom control */
+L.LegendControl = L.Control.extend({
+	onAdd: function (map) {
+		var div = L.DomUtil.create('div', 'info legend');
+		var grades = [0, 51, 112, 177, 253];
+		var labels = [];
+		var from;
+		var to;
+
+		for (var i = 0; i < grades.length; i++) {
+			from = grades[i];
+			to = grades[i + 1];
+
+		labels.push(
+			'<div><i style="background:' + getColor(from + 1) + '"></i> ' +
+			from + (to ? '&ndash;' + to : '+') + "</div>");
+			}
+
+		div.innerHTML = labels.join('');
+			return div;
+}
+});
+
+L.legendControl = function(options) {
+	return new L.LegendControl(options);
+};
+L.legendControl({position: 'bottomright'}).addTo(map);
+	  
+  </script>
+</body>
+</html>
